@@ -1,0 +1,354 @@
+---
+title: "pset_1"
+author: "Sabrina Zhang"
+date: "`r Sys.Date()`"
+output: html_document
+---
+### [1]
+I'm going to load the `pacman` package and then will use it to load the `tidyverse`, `scales`, `fixest`, `patchworks` and `here` packages. Then, I'll read in the data from the `data-ps1.csv` file using the `read_csv()` function from the `readr` package, which is part of the `tidyverse`. The data will be stored in a data frame called `life_df`.
+```{r}
+library(pacman)
+p_load(tidyverse, scales, fixest, here, patchwork)
+life_df = here("~/Desktop/School Stuff/EC 421/pset_1/data-ps1.csv")|> read_csv()
+```
+### [2]
+Number of Observations: 3106
+
+Number of variables: 18
+
+Number of Complete Observations: 3106
+
+Number of Distinct Counties: 1051
+
+Number of Distinct States: 50
+
+Number of Observations in Q1: 1553
+
+Number of Observations in Q4: 1553
+```{r}
+ncol(life_df)
+nrow(life_df)
+life_df = na.omit(life_df)
+ncol(life_df)
+nrow(life_df)
+n_distinct(life_df$county_name)
+n_distinct(life_df$state_abb)
+nrow(filter(life_df, income_quartile == 1))
+nrow(filter(life_df, income_quartile == 4))
+```
+### [3]
+```{r}
+life_df = mutate(life_df, high_income = as.numeric(income_quartile == 4))
+life_df
+```
+### [4]
+Generally we see that life expectancy is higher in Q4 income, the population in Q1 has higher rates of smoking and obesity, and does not exercise as much as the population in Q4.
+
+
+```{r}
+filtered_q1 = filter(life_df, high_income == 0)
+filtered_q4 = filter(life_df, high_income == 1)
+
+summary = 
+  tibble(
+  id = c("life_exp", "pct_smoke", "pct_obese", "pct_exercise"),
+  
+  std_Q1 = c(sd(filtered_q1$life_exp), sd(filtered_q1$pct_smoke) * 100, sd(filtered_q1$pct_obese)*100,    sd(filtered_q1$pct_exercise)*100),
+   std_Q4 = c(sd(filtered_q4$life_exp), sd(filtered_q4$pct_smoke) * 100, sd(filtered_q4$pct_obese)*100,    sd(filtered_q4$pct_exercise)*100),
+  
+  
+  mean_Q1 = c(mean(filtered_q1$life_exp), mean(filtered_q1$pct_smoke)*100, mean(filtered_q1$pct_obese)*100, mean(filtered_q1$pct_exercise)*100),
+  
+
+  mean_Q4 = c(mean(filtered_q4$life_exp), mean(filtered_q4$pct_smoke)*100, mean(filtered_q4$pct_obese)*100, mean(filtered_q4$pct_exercise)*100)
+)
+
+summary
+
+```
+### [5]
+
+```{r}
+create_boxplot = function(df, x, y, title, x_axis, y_axis)  {
+  ggplot(data = df, 
+                 aes(x = {{x}}, y = {{y}}))+ 
+  geom_boxplot(fill = "grey", notch = TRUE, outlier.colour = "red")+
+    labs(title = title, x = x_axis, y = y_axis) + ylim(75,93)} 
+        
+is_urbanQ1 = filter(life_df, is_urban == 0, high_income == 0)
+is_urbanQ4 = filter(life_df, is_urban == 0, high_income == 1)
+
+not_urbanQ1 = filter(life_df, is_urban == 1, high_income == 0)
+not_urbanQ4 = filter(life_df, is_urban == 1, high_income == 1)
+
+not_urban1 = create_boxplot(not_urbanQ1, income_quartile, life_exp,"Not Urban Q1", "Income Quartile", "Life Expectancy ")
+
+not_urban4 = create_boxplot(not_urbanQ4, income_quartile, life_exp,"Not Urban Q4", "Income Quartile", "Life Expectancy ")
+
+is_urban1 = create_boxplot(is_urbanQ1,income_quartile, life_exp, "Urban Q1", "Income Quartile", "Life Expectancy")
+
+is_urban4 = create_boxplot(is_urbanQ4,income_quartile, life_exp, "Urban Q4", "Income Quartile", "Life Expectancy")
+
+not_urban1 + not_urban4
+is_urban1 + is_urban4
+not_urban1 + is_urban1
+not_urban4 + is_urban4
+
+```
+
+### [6]
+```{r}
+create_density = function(df, x, title, x_axis)  {
+  ggplot(data = df, 
+                 aes(x = {{x}}))+ 
+  geom_density()+
+    labs(title = title, x = x_axis) } 
+
+filtered_q1 = filter(life_df, high_income == 0)
+filtered_q4 = filter(life_df, high_income == 1)
+
+
+smoker_q1 = create_density(filtered_q1, pct_smoke, "Income Quartile  1", "Percentage Smoker")
+
+smoker_q4 = create_density(filtered_q4, pct_smoke, "Income Quartile 4", "Percentage Smoker")
+
+smoker_q1 + smoker_q4
+```
+
+### [7] 
+```{r}
+ggplot(data= life_df, aes(x = pct_smoke, 
+                                      y = life_exp, 
+                                      color = factor(
+                                      income_quartile,
+                                      labels = c("First Quartile", "Fourth Quartile")))) +  geom_point()+ 
+  labs(title = "Life Expectancy Disturbution by Percentage Smoker",
+    x = "Percentage Smoker",
+    y = "Life Expectancy",
+    color = "Income Quartile") + geom_smooth(method = 'lm', se = FALSE) 
+```
+
+### [8] 
+In figure [5], the box plots show the disparity between life expectancy and urban and non urban Q1 and Q4 income earners. Comparing Q1 and Q4 non urban residents, we see that the average life expectancy is about 77 and 87 years old respectively. This pattern still holds with the figure comparing urban Q1 and urban Q4. What this tells us is that on average, people earning in the fourth quartile of income will generally live longer lives. 
+
+Figure [6] shows the density spread of smokers and non smokers in Q1 and Q4 income quartiles. We see that there is a peak in quartile 1 income where ~27% is the most frequent percentage of smokers, compared to quartile 4 income earners where the  highest frequency of percentage smokers in the population is at ~12.5%. The model tells us that the most frequent distribution of smokers sits at ~27% for Q1 earners and the most frequent smoker distribution for Q4 is at ~12.5%.
+
+Figure [7] shows a scatterplot of life expectancy and percentage of smokers between Q1 and Q4 income earners. It shows a negative correlation between smoker percentage and life expectancy, however the Q1 income earners have a steeper slope than Q4. This tells us that per percentage increase in smoking population and Q1 earners, life expectancy will decrease more than compared to a percentage increase in smoking population among Q4 earners. 
+
+From figures [5][6][7], we see that life expectancy is generally higher among Q4 earners, they are less likely to be smoking, and per increase in percentage of the smoker population, the life expectancy is still projected to live longer than those in Q1. Generally there was not much of a difference in urban vs non urban in terms of averages, and we see that urban vs non urban in both groups generally have the same spread of life expectancy. 
+
+### [9]
+The scatter plot shows the distinction betwee                     zsA    n Q1 and Q4 income earners. If we regressed on only smoking rate and life expectancy, the line would go through the two clouds and there would be a high variance. Omitted variable bias would occur because there is a visual distinction between the two life expectancy of Q1 and Q4in terms of life expectancy.
+
+
+### [10]
+Omitting the income variable would still result in a negative b1 coefficient when predicting life expectancy. In figure [7], we see that both plots have a negative downward trend, omitting the offset of income would result in a regression between thE two clouds, which would still be a downtrend. This is accurate from the variable we are regressing on as smoking does not increase life expectancy. 
+
+```{r}
+smoke_reg = lm(life_exp ~ pct_smoke, data = life_df)
+smoke_income = lm(life_exp ~ pct_smoke + high_income, data = life_df)
+
+smoke_reg
+smoke_income
+```
+### [11]
+```{r}
+summary = tibble(
+  id = c("Smoking", "Smoking + Income"),
+  intercept = c(87.51, 80.164),
+  pct_smoke = c(-24.81 , -4.6230),
+  high_income = c(0, 6.411))
+summary
+```
+
+### [12]
+The result in table [11] is consistent with my prediction [10]. We see that without including income quartile as a predictor, the intercept is 87 years (when the smoking population is 0), with a decrease of 2.48 years for every 10 percentage point increase. Regressing smoking on income, having a high income conditional increases life expectancy to 86.5 years (intercept) and  on a 10 percentage point basis, for every 10% increase in smoking percentage, we see that life expectancy will decrease by 0.46 years.
+Those who are in income quartile 1 will have a life expectnacy of 80.16 years when smoking population is 0
+
+### [13]
+Adding the urban indicator did not change anything meaningful to the life expectancy predictor. This tells us that not all omitted variables will have a significant contribution to the predictor outcome.
+```{r}
+smoke_income_u = lm(life_exp ~ pct_smoke + high_income + is_urban, data = life_df)
+
+smoke_income_u
+```
+
+```{r}
+summary = tibble(
+  id = c("Smoking + Income + Urban"),
+  intercept = c(80.12132),
+  pct_smoke = c(-4.62364),
+  high_income = c(6.41054),
+  is_urban = c(0.05368))
+summary
+```
+
+### [14]
+The plots do suggest heteroskedasticity, there is a cloud that stretches to the side as smoking rate increases. It could be argued that it can be considered homoscedastic.
+
+```{r}
+life_df$e = residuals(smoke_income_u)
+plot(life_df$pct_smoke, life_df$e, main = "Residuals Regressed on Smoking Rate", xlab = "Smoking Rate", ylab = "Residuals")
+
+```
+
+### [15]
+The OLS coefficients estimates would not be able to accurately describe all the data in the presence of heteroskedasticity. This in turn would mean there would be a greater OLS standard or a larger uncertainty in predicting with the model. Larger deviation from the OLS estimation would result in a larger variance in the data. 
+
+
+### [16]
+The P value is 0.99 > 0.05. We conclude that the model shows no statistically significant evidence against the null hypothesis. Therefore we fail to reject the null H0.
+```{r}
+smoke_df = arrange(life_df, pct_smoke)
+third = floor(nrow(life_df)/3)
+estmodel1 = lm(life_exp ~ pct_smoke + high_income + is_urban, data = tail(smoke_df, third))
+estmodel2 = lm(life_exp ~ pct_smoke + high_income + is_urban, data = head(smoke_df, third))
+
+res_model1 = resid(estmodel1)
+res_model2 = resid(estmodel2)
+
+sse_model1 = sum(res_model1^2)
+sse_model2 = sum(res_model2^2)
+
+f_gq = sse_model1/sse_model2
+
+pf(q = f_gq, df1 = third - 4, df2 = third - 4, lower.tail = F)
+```
+
+### [17]
+```{r}
+white_model = lm(
+  I(e^2) ~ pct_smoke + high_income + is_urban + I(pct_smoke^2) + pct_smoke:high_income + pct_smoke:is_urban + high_income:is_urban, data = life_df)
+# White test R squared
+white_r2 = summary(white_model)$r.squared
+# White test statistic
+white_stat = white_r2 * length(life_df$e)
+# Calculate P value
+pchisq(q = white_stat, df = 7, lower.tail = F)
+
+```
+### [18]
+The Goldfeld-Quandt test and White test did not agree in this instance. We see that the White test produced a result of 0.0 < 0.05 which says that it is statistically significant that the relationship is not due to chance, ie we reject the null hypothesis and it is heteroskedastic.
+In this application we regressed on the variables as well as its interaction terms. The White tests regresses the residuals squared on the variables and its interaction to see if there are interactions.
+The Goldfeld - Quandt test is good when there is large heteroskedasticity among the first and third portion (linearly checking) but White Tests looks for any non linear interactions. 
+
+
+### [19] 
+The predicted life expectancy when all over factors are 0 is 80.5 years old. 
+For each 10% unit increase of percentage smokers, the life expectancy does down by 0.6 years. If the group is high income, life expectancy goes up by 5.8, and for those who are high income and smokers, life expectancy is offset by 2.9 years. Urbanism adds 0.03 years to the life expectancy (not much there).
+```{r}
+life_expectancy = lm(life_exp ~ pct_smoke + high_income + is_urban + pct_smoke:high_income, data = life_df)
+
+summary(life_expectancy)
+
+```
+
+### [20]
+Per 10% increase in smoking, those in the low income would see a decrease in life expectancy by -0.60 years whereas those who are in the high income would see a decrease in life expectancy by -0.31 years. 
+
+```{r}
+low_income =  -6.06857 * 0.1
+high_income =(-6.06857 + 2.90776) * 0.1
+
+low_income
+high_income
+```
+### [21]
+The standard error in model 21 actually increased the standard error of each variable by a few points, the biggest one being percentage smoker going up by 0.7 in the heteroskedasticity robust regression. It emphasized the standard error more, it doesn't really change the conclusions its just less confident with a slightly larger error.
+
+```{r}
+p_load(fixest)
+life_reg = feols(life_exp ~ pct_smoke + high_income + is_urban + pct_smoke:high_income, data = life_df,vcov = 'hetero')
+
+model_21 = summary(life_reg)
+model_19 = summary(life_expectancy)
+model_19
+
+```
+```{r}
+model_21
+```
+### [22]
+WLS puts emphasis on points that are closer to the regression line compared to the unweighted. This punishes outliers with high variance and emphasizes points closer to the model's,  prediction. 
+Looking at [19] and [22] unweighted vs weighted, we see that the weighted regression increased the intercept by ~4 years, decreased life expectancy by 2 years on a 10% basis increase per percentage smoker. We also see changes in the intercept for high income population from ~5 years to ~2 years. The interaction term for high income and per 10% increase in smoker percentage offsets the life expectancy by ~13 years. 
+
+All of the variables have a p value of less than 0 which is statistically significant, to which we can reject the null hypothesis. 
+
+Weighted estimates does not automatically solve for heteroskedasticity. For WLS to work efficiently, the weights needs to be accurate and the original model's equation also needs to be accurate to model the correct prediction. 
+In this model, weighting the regression on population allowed for a more accurate regression model, but it is not always the case if the wrong weight is chosen. 
+
+```{r}
+w_life_reg = feols(life_exp ~ pct_smoke + high_income + is_urban + pct_smoke:high_income, data = life_df,weights = ~pop, vcov = 'hetero')
+ 
+model_19 = summary(life_expectancy)
+model_22 = w_life_reg
+model_19
+```
+```{r}
+model_22
+```
+
+### [23] 
+Correlated disturbances happen when disturbances overlap with variables that are not modeled in the regression or the sample may relate to other observations. There is overlap in the data that is not accurately being represented. 
+This becomes a problem because this causes overconfidence in th prediction of the model under the assumption that the observations are independent. This can lead us to false positives or incorrect conclusions.
+
+### [24] Update the regression from [19] to use cluster-robust standard errors, clustering at the county level (county_code). Show the results.
+
+```{r}
+county_cluster = feols(life_exp ~ pct_smoke + high_income + is_urban + pct_smoke:high_income, data = life_df, cluster = "county_code")
+
+model_24 = county_cluster
+model_24
+
+```
+
+### [25] 
+Clustering at the county level reduced the standard error by about 0.1-0.3 for each variable. The major difference in stderr was in percentage smoking which went from 0.51 to 0.43 in model 24.
+```{r}
+model_21
+```
+```{r}
+model_24
+```
+
+
+### [26] 
+Model 24 at the state clustering resulted in a greater standard error for all variables. Comparing at the state level generalizes the population and creates greater disturbances that may be present in one part of the state and not the other, or overlapping practices. This causes unnecessary interactions between the observations. Clustering by state also groups individaul counties together which increases error and reduces sample size.
+```{r}
+state_cluster = feols(life_exp ~ pct_smoke + high_income + is_urban + pct_smoke:high_income, data = life_df, cluster = "state_abb")
+
+model_26 = summary(state_cluster)
+
+model_24
+
+```
+```{r}
+model_26
+
+```
+### [27]
+
+ The model used in 19 regresses on the interaction term between pct_smoke:high_income under the OLS assumption that the model is homoskedastic. In the White test, we saw that the model is heteroskedastic, and we rejected the null hypothesis. The small standard errors overstate confidence. Looking at the models 19 - 26, we see the standard errors vary through out even though the majority has a statistically significant p value. This says that OLS assumptions might be violated and omited variable bias may be present. 
+model_19
+model_21 # hetero robust
+model_22 # weighted pop
+model_24 # county cluster
+model_26  # state cluster
+```{r}
+model_19
+```
+
+```{r}
+model_21 # hetero robust
+```
+```{r}
+model_22 # weighted pop
+```
+```{r}
+model_24 # county cluster
+```
+```{r}
+model_26  # state cluster
+```
+### [28]
+In this data set where we attempted to predict life expectancy using data and regressing on percentage smoking and income, we see that the data is heteroskedastic through the GoldfeWhite test. Heteroskedasticity is a violation of OLS assumptions. Through modeling we see variation in the standard errors and while it states statistically significant P values, the data may provide false confidence levels due to omitted variable bias. To account for this issue, we clustered the data by state and county level. Clustering by state increased the standard error levels but the coefficients remained the same throughout the tests. This does not conclude accuracy to the real world and omitted variable bias is still possible within our model.

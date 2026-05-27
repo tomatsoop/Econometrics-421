@@ -1,0 +1,258 @@
+---
+title: "Pset-2"
+author: "Sabrina Zhang"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+library(pacman)
+p_load(tidyverse, scales, fixest, here, patchwork, dplyr)
+FRED_df = here("~/Desktop/School Stuff/EC 421/pset_2/data-ps2.csv")|> read_csv()
+```
+
+```{r}
+view(FRED_df)
+```
+
+ 
+### 2: What time period do the data cover? How many months are in the sample?
+
+The time period covers from 1990-01-01 till 2025-12-01. There are 432 months during that time. 
+
+```{r}
+
+head(FRED_df$date,1)
+tail(FRED_df$date,1)
+max(FRED_df$time)
+dim(FRED_df)
+```
+
+### 3. How many “complete” observations are there in the sample? In other words, after dropping missing values, how many observations remain?
+
+There is 431 rows of data after dropping incomplete data, there used to be 431. 
+
+```{r}
+FRED_clean = FRED_df %>% drop_na()
+dim(FRED_clean)
+
+```
+
+### 4: For each of the “economic” variables (ignoring date, time, and country), report the mean and interpret it (putting it in the context of its units).
+
+Data is represented through time range 1990-01-01 till 2025-12-01. Each observation unit is per month. 
+The average housing count of New Privately-Owned Housing units is 1326. 
+The average mortgage rate during this time period is 6.01%.
+The average CPI is 209.99.
+The average Industrial production is 90.30
+The average unemployment rate is 5.67%.
+During this time period, 8% of the months were in a recession period.
+
+```{r}
+FRED_clean %>%
+  summarize(
+    across(-c(date, time, country),
+           mean, na.rm = TRUE))
+```
+### 3: Time Series Plots
+
+```{r}
+scatter = function(df, x_var, y_var, colors, titlE, x_label, y_label){
+  ggplot(data = df, aes(x = {{x_var}}, y = {{y_var}})) + 
+    geom_point( color = colors) + 
+    labs(title = titlE, x = x_label, y = y_label)
+                                                            
+}
+
+scatter(FRED_clean, time, housing, "blue", "New Housing Index 1990 - 2025", "Months 1990 - 2025", "New Housing Index")
+scatter(FRED_clean, time, mortgage_rate, "red", "Mortgage Rates 1990 - 2025", "Months 1990 - 2025", "Mortgage Rate")
+
+scatter(FRED_clean, time, cpi, "cyan", "CPI 1990 - 2025", "Months 1990 - 2025", "CPI")
+
+scatter(FRED_clean, time, industry, "purple", "Industry Production 1990 - 2025", "Months 1990 - 2025", "Industry Production")
+
+scatter(FRED_clean, time, unemp, "green", "Unemployment Rate 1990 - 2025", "Months 1990 - 2025", "Unempployment Rate")
+
+
+```
+
+### 6: Trends
+
+Housing rates - Generally upward trend until the 2007 housing market crash that is referenced at month 200. After that the new housing index is following a recovery at roughly month 245. There seems to be cycles in when houses are build. Like in month 0, there was a downward trend before a big spike, we are seeing this again in month 400 with a downward slope into present time.
+
+Mortgage rates - Follows a cyclical downward sloping trend. There are peaks and troughs but the rates keeps going downwards. this is good for homeowners however there is a very high spike leading into month 400 into present day. This must be what our generation is talking about when housing becomes less and less affordable. 
+
+CPI - CPI inflation has a linear slope which increased in steepness in roughly month 352, right when COVID happen. If you observe the lag after month 200, there was a blip in the CPI index which went back down to how it was, it may be correlated with 2007 housing market. 
+
+Industry Production - Steady upward growth till right after month 200. There is some lag time between month 200 and before the steep drop of industry production. There is autocorrelation with the timing of the 2007 housing market and how much were being produced. Sudden correction in housing production dropped industry production. 
+
+Unemployment Rate - Has a roughly flat ine in terms of how low  and high it can go, there are cyclical patterns in the changes. Right after month 200, unemployment rate up to what seems about 10%. There is a very little lag time between month 200 and the starting point of rising unemployment. Most notably is the almost 15% unemployment rate in month 375 right when COVID hit. Unemployment rate has since settled by month 400, and is slowly back on the cyclical system. 
+
+### 7: Based on the plots alone, which variables appear likely to be non-stationary in levels (in their means)?
+
+Starting out, mortgage rates seems to be non stationary with variation in peaks and troughs, however there is a clear downward slope. 
+Stationary describes data when the mean of the distribution is independent of time, then all of the plots and data are non stationary as each outcome specifically is dependent on the time that previously came. The variance is not independent of time, and the covariance is not the same from month 0 - 10 compared to 380 - 390 for any of the plots.
+
+### 8: How do the Great Recession/Financial Crisis and the COVID-19 Pandemic appear to affect each of the five time-series?
+
+The financial crisis caused significant shock waves in the housing index with a steep decline at month 200(and one of which we have yet to recover to the peak of). This decline in housing production also significantly impacted industry production which took a hit a couple months after the 200th month, at the same time, unemployment rate spiked. Mortgage rate saw a steady decline since then which leads us to COVID shocks. 
+
+COVID shocks happened roughly around month ~356, we can see that industry production took a large dip following the months after the first COVID reports, and has since then recovered. Right around that time, unemployment rate hit its all time high in this data set at almost 15%, during which, CPI index also saw a steep increase for a few months and now is back on its steady path up. The housing index saw some dips in production right around COVID but has recovered, we also see that mortgage rates went back up to roughly 7%, approaching month 400, and we see somewhat of an increase since then. 
+
+
+## 4: Transformations
+
+```{r}
+FRED_clean = FRED_clean %>%
+  mutate(
+    diff_housing = housing - lag(housing),
+    diff_mr = mortgage_rate - lag(mortgage_rate),
+    infl = 100 * (log(cpi/lag(cpi))),
+    diff_industry = industry - lag(industry),
+    diff_unemp = unemp - lag(unemp)
+  )
+FRED_clean
+```
+```{r}
+
+scatter(FRED_clean, time, diff_housing, "blue", "Month to Month Diff in New Housing Index 1990 - 2025", "Months 1990 - 2025", "New Housing Index")
+scatter(FRED_clean, time, diff_mr, "red", "Month to Month Diff in Mortgage Rates 1990 - 2025", "Months 1990 - 2025", "Mortgage Rate")
+
+scatter(FRED_clean, time, infl, "cyan", "Inflation Rate 1990 - 2025", "Months 1990 - 2025", "CPI")
+
+scatter(FRED_clean, time, diff_industry, "purple", "Month to Month Diff in Industry Production 1990 - 2025", "Months 1990 - 2025", "Industry Production")
+
+scatter(FRED_clean, time, diff_unemp, "green", "Month to Month Diff in Unemployment Rate 1990 - 2025", "Months 1990 - 2025", "Unempployment Rate")
+
+
+```
+
+### 11:  Did the transformations help to stabilize the time series? Explain your answer.
+
+Yes! As we see in each of the graphs, the variance relatively follows along a mean point. In a stationary data set we want that the expected mean, variance, and covariance to be the same in t as it is to t-1. The two variation in that data was during large shocks was in the 2007 Housing Crisis as well as COVID. Overall, it can be said that the differences has a homeostatic spread.
+
+## 5: Time Series
+### 12: Reporting Estimates
+
+housing_t = 2371.687 + (8.834 * mortgage_rate) + (-3.546 * industry) + (-137.182 * unemp)
+
+```{r}
+housing_t = lm(housing ~ mortgage_rate + industry + unemp, data = FRED_clean)
+summary(housing_t)
+
+
+```
+### 13: 
+While holding every other variable constant relative to the variable being described: 
+The housing_t index will be described as : new housing per thousand units
+The scope of this time period measures the effect through out the entire sample period. 
+Ex. A 1 unit increase on var y has a 15 unit increase over the entire sample period
+
+The baseline housing_t is 2371.68 month per month.
+When there is a 1 unit increase in mortgage rate, there is a 8.834 (per thousand) unit increase in New Housing Index.. 
+
+When there is a unit increase in industry production output, there is a -3.546 unit decrease in New Housing Index. 
+
+When there is a 1 unit increase in unemployment, there is a -137.182 unit decrease in New Housing Index.
+
+### 14: Why should we be concerned about non-stationarity in the context of this regression? Explain the concern and why it is relevant here.
+
+We should be considering non stationary variables because each one of these measurements are very much dependent on the value in the past t-1. These rates are a month to month measure which is exactly the definition of non stationary. Non stationary variables also produce random walk patterns when measured over a long duration, which can report correlations that don't exist.
+
+### 15:  How can you address the non-stationarity issue in this regression?
+
+Account for non stationary variables by taking the difference and using that to model effect on housing.
+
+
+### 16: Model using time diff
+
+housing_tdiff = -4.292 + -41.693* diff_mortgage + 38.328 diff_industry + 12.135 * diff_unemployment
+```{r}
+housing_tdiff = lm(diff_housing ~ diff_mr + diff_industry + diff_unemp, data = FRED_clean)
+summary(housing_tdiff)
+
+
+```
+### 17: Interperting coeffiecents in differened regression
+
+The model housing_tdiff will represent the month to month change on New Housing Index.. 
+Each variable described will assume holding all other equal. 
+At the baseline, the month to month change in the New housing index is -4.292 (intercept). 
+A unit increase in mortgage rate has a unit decrease of -41.693 per month on New Housing Index.
+
+A unit increase in industry production has a 38.328 unit increase per month on the New Housing Index.
+
+A unit increase in unemployment rate has a 12.135 unit increase per month on the New Housing Index.
+
+### 18:  Are the coefficient estimates from the differenced regression meaningfully different from the original static (un-differenced) regression?
+
+Not exactly, in the one regressed without time difference had extremely large standard errors for the unit measuring intercepts. While we see a change in mortgage rate standard errors, there is a increase in the range after taking the difference vs the actual month to month trend. 
+Regarding P values, there was very strong evidence that we reject the null hypothesis in the interpenetration of the intercept. however in the other variable units the P values remain large or become statistically significant like diff_industry. 
+
+### 19: How would an autocorrelated disturbance affect OLS in this setting?
+
+Autocorrelation is correlation through time. There is violation of contemporaneous exogeneity where cov(x,u) =/= 0. This means that the disturbances in the t variable is correlated with the t-1 disturbance. When there is exogeneity, there is also omitted variable bias, where the disturbances are representing some effect that we are not accounting for. This leads to OLS being inconsistent. Overall, autocorrelation causes OLS to be biased and inconsistent.
+
+### 20:  Perform a test for first-order autocorrelation in the residuals of the differenced static model.
+```{r}
+# Regressing residual
+FRED_clean$e = NA
+FRED_clean$e[-1] = residuals(housing_tdiff, na.rm = FALSE)
+
+reg_resid = lm(e ~ lag(e, 1), data = FRED_clean)
+
+summary(reg_resid)
+
+
+```
+### 21: Update your differenced regression to use Newey-West standard errors and compare the results with the original regression.
+
+Comparing the NW regression with the normal OLS regression, we see that the P values on the NW  model are statistically significant compared to the OLS model such that we reject the null hypothesis (ie there is correlation to the housing variable). The standard errors also decreased in the NW model. 
+```{r}
+nw_reg = feols(
+  diff_housing ~ diff_mr + diff_industry + diff_unemp, data = FRED_clean,
+  panel.id = ~ country + time,
+  vcov = "nw"
+  
+)
+summary(nw_reg)
+
+```
+```{r}
+summary(housing_tdiff)
+
+```
+### 22: How would autocorrelation affect OLS when estimating this new model?
+
+Autocorrelation says that the variables are dependent on the variable itself in t-1. Even if we regressed on the t-1 variable, t-1 would be dependent on t-2, and so cov(ut, ut-1) =/= 0. This still violates OLS estimation as ut still has unexplained effect from the previous time periods. OLS is unbiased for estimated coefficients however it is biased for standard errors and is inefficient. 
+
+### 23: Is OLS unbiased in this case? Is it consistent? Explain your answer.
+
+If we lag on the dependent variable, the ut-1 from change_housingt-1 will be present in the model. This says that the model is still auto correlated through time which causes it to be biased such that (cov xt, ut) =/= 0, violating contemporaneous exogeneity. The m odel remains biased and inconsistent. 
+
+ADL models
+# 24: Consider the two regressions below (and their results). What do the regressions tell us about non-stationarity of housing and diff_housing?
+
+Non stationary - Variation in mean through time. 
+diff_housing - stationary model through  time 
+
+The two regression models is regressing on housing in t which is dependent on housing in t-1. In the non stationary model we see that it is highly correlated with R2 at 0.93 compared to teh stationary model with 0.14 correlation. non stationary housing model states that there is a intercept of 46,06 and per unit increase in housingt-1, there will be a 0.96 effect on housingt. 
+The non stationary model is measured through the entire period of time, and on average. in the stationary model, from a month to month account, it has a intercept of -0.34 from housingt-1 and a -0.377 affect per unit increase in housingt-1. 
+
+The stationary has a month to month downward trend, with a correlation of 0.14 R^2. This says that there is little correlation from diff_housingt and diff_housingt-1 to predict the month to month change. 
+
+Compared to non stationary trend, we see that high correlation at 0.96 suggests that predicting houusingt is highly dependent on housingt-1. 
+
+In this model, the non stationary model is better at predicting the housing index using the 1 month lag regression on itself. 
+
+
+### 25:  Which of the models that we estimated and/or considered is the most appropriate for our setting—i.e., which model would you choose to use in practice? Or would you choose a different model altogether? Explain.
+
+For predicting housing index, the non stationary model would be best for predicting the future outcome for the next monthly period. However, non stationary models measured over a long period of time will display random walk patterns that create correlations that are not actually present. If we are measuring in the short term, non stationary models are favorable. 
+ADL models regress the dependent variables and itself and has auto correlated disturbances,  violating the assumptions of OLS. These standard errors biases can be adjusted by using the Newly-West to calculate robust standard errors. 
+Newly-West standard error does not fix OLS violations but accounts for autocorrelation when estimating the standard errors, making the inference consistent and more reliable.
+
+
+
+
+

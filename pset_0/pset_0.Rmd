@@ -1,0 +1,280 @@
+---
+title: "proj_1"
+author: "Sabrina Zhang"
+date: "`r Sys.Date()`"
+output: html_document
+---
+```{r}
+library(pacman)
+p_load(tidyverse, scales, patchwork, fixest, here,glue)
+
+income = here("~/Desktop/School Stuff/EC 421/pset_1/data-ps0.csv") |> read_csv()
+
+```
+## 2. 
+```{r}
+# Dimensions of Data set
+counties = distinct(select(income, county_name))
+
+glue("Rows in Dataset: ", nrow(income), "| Columns in Dataset: ", ncol(income), "\n",
+     "Number of Counties: ", count(counties))
+head(income)
+
+```
+## 3 
+State Abbreviation is the only non numerical data.
+
+
+## 4. 
+```{r}
+ggplot(income, aes(x = median_hh_inc)) + 
+  geom_histogram(bins = 20) + 
+  labs(
+  
+    title = "Median Household Income",
+    x = "Income",
+    y = "Frequency", 
+
+  )
+  scale_x_continuous(labels = scales::dollar_format(scale = 1000))
+
+```
+### Creating Histograms
+```{r}
+create_histogram = function(df, column, color, title, x_title) {
+  ggplot()+ 
+  geom_histogram(data = df, 
+                 aes(x = {{column}}),
+                 bins = 50, fill = color, alpha= 0.5)+
+                 labs(title = title, 
+                      x = x_title,
+                      y = "Frequency")
+    
+  }
+```
+## 5. 
+```{r}
+
+create_histogram(income, life_exp, "green", "Life Expectancy", "Life Expectancy in Years")
+```
+
+## 7. Life Expectancy Q1 vs Q4
+```{r}
+life_exp_q1 = filter(income, income_quartile == 1)
+
+life_exp_q4 = filter(income, income_quartile == 4)
+
+q1_life_exp = create_histogram(life_exp_q1, life_exp, "blue", "Q1 Life Expectancy", "Life Expectancy in Years")
+q4_life_exp = create_histogram(life_exp_q4, life_exp, "red", "Q4 Life Expectancy", "Life Expectancy in Years")
+
+q1_life_exp + q4_life_exp
+
+```
+```{r}
+##Average Life Expectancy in Q1:
+mean(life_exp_q1$life_exp)
+##Average Life Expectancy in Q4:
+mean(life_exp_q4$life_exp)
+
+
+
+```
+# 8.
+```{r}
+
+#create_histogram
+# select county code and income quartile
+life_exp_q1s = select(filter(income, income_quartile == 1), state_abb, county_name, county_code, life_exp)
+life_exp_q4s = select(filter(income, income_quartile == 4), county_code, life_exp, )
+
+# rename 
+names(life_exp_q1s)[names(life_exp_q1s) == "life_exp"] = "life_exp_q1"
+names(life_exp_q4s)[names(life_exp_q4s) == "life_exp"] = "life_exp_q4"
+
+# merge data
+merged_data = full_join(life_exp_q1s, life_exp_q4s, by = "county_code")
+
+merged_data$life_exp_diff = merged_data$life_exp_q4 - merged_data$life_exp_q1
+
+diff_life_exp = create_histogram(merged_data, life_exp_diff, "green", "Life Exp Diff: Income Level Q1 vs Q4", "Life Expectancy in Years" )
+
+```
+
+```{r}
+
+diff_life_exp
+
+# Avg life Expectancy in Q1:
+
+mean(life_exp_q1$life_exp)
+
+# Avg life Expectancy in Q4:
+mean(life_exp_q4$life_exp)
+
+# Avg Diff. in Life Expectancy:
+mean(merged_data$life_exp_diff,  na.rm = TRUE)
+
+# Lowest Diff. in Life Expectancy
+
+min_life_diff = merged_data %>%
+  filter(life_exp_diff == (min(merged_data$life_exp_diff, na.rm = TRUE)))
+
+max_life_diff = merged_data %>%
+  filter(life_exp_diff == (max(merged_data$life_exp_diff, na.rm = TRUE)))
+
+
+min_life_diff 
+max_life_diff 
+
+```
+## 9. Histogram Findings:
+The life expectancy in the first quartile income level clusters around 77 to 80 years old whereas for Q4, the life expectancy clusters around 85 to about 87 years old. Taking the average of each quartile, we see that:
+
+ - A person within the first quartile of income has an average life expectancy of 79 years old.
+
+- A person in the fourth quartile of income has an average life expectancy of 86 years old. 
+
+- The average difference in life expectancy for all counties is about 7 years. 
+- The distribution of difference in life expectancy is roughly normal.
+- The population in Q1 has more spread than the population in Q4, which is more concentrated at ~87 years old. 
+- Both have a roughly normal distribution however it can be observed that Q1 has a slight right skew.
+
+The minimum difference in life expectancy is in Knox county Kentucky at -1.62 years, meaning that people in the first quartile of income lives 1.62 years longer than in the fourth quartile of income.
+
+The maximum difference in life expectancy is also in Kentucky, in Bell county (right next Knox), with the life expectancy of living 12.66 more years if you were in the fourth quartile income. 
+
+The majority of difference in life expectancy clusters between 5 to 10 years, with many around counties frequently recorded at 7 years in discrepancy. 
+
+## 10. Relationship Between income and Life expectancy
+
+```{r}
+
+ggplot(data= income) + geom_point(aes(x = median_hh_inc, 
+                                      y = life_exp, 
+                                      color = factor(
+                                        income_quartile,
+                                        labels = c("First Quartile", "Fourth Quartile")))) + 
+  labs(title = "Life Expectancy Disturbution",
+    x = "Median Household Income",
+    y = "Life Expectancy",
+    color = "Income Quartile"
+   ) 
+    
+
+```
+
+## 11. 
+The relationship between life expectancy and median household income shows that the population of the counties that earn within the 4th quartile of income will, on average, live longer than those in the 1st quartile. 
+For both Q1 and Q4 income earners, there is a positive relationship between median household income and life expectancy. 
+However at similar income levels, the Q1 earners live shorter lives than those who earn the same amount in the Q4, suggesting that quality of life may depend on other factors to determine life expectancy. 
+
+
+## 12. Regressing on the data in general
+```{r}
+income_life_exp = lm(life_exp ~ median_hh_inc, data = income)
+
+summary(income_life_exp)
+
+ggplot(data= income) + geom_point(aes(x = median_hh_inc, 
+                                      y = life_exp, 
+                                      color = factor(
+                                        income_quartile,
+                                        labels = c("First Quartile", "Fourth Quartile")))) + 
+  labs(title = "Life Expectancy Disturbution",
+    x = "Median Household Income",
+    y = "Life Expectancy",
+    color = "Income Quartile"
+   ) +geom_abline(slope = 0.051742, intercept = 80.618136, color = "red")
+
+    
+
+```
+
+## 13. The predicted life expectancy of a person with 0 income is 80.6 years old and per $1000 increase in income, there is a increase in life expectancy of 0.05 years.
+
+## 14. Regression on Q1 and Q4
+```{r}
+income_q1 = lm(life_exp ~ median_hh_inc, data = (filter(income, income_quartile == 1)))
+
+income_q4 = lm(life_exp ~ median_hh_inc, data = (filter(income, income_quartile == 4)))
+
+#Q1 Data:
+summary(income_q1)
+
+#Q2 Data:
+summary(income_q4)
+
+```
+```{r}
+ggplot(data= income) + geom_point(aes(x = median_hh_inc, 
+                                      y = life_exp, 
+                                      color = factor(
+                                        income_quartile,
+                                        labels = c("First Quartile", "Fourth Quartile")))) + 
+  labs(title = "Life Expectancy Disturbution",
+    x = "Median Household Income per $1000",
+    y = "Life Expectancy",
+    color = "Income Quartile"
+   ) +geom_abline(slope = 0.046904, intercept = 77.232936, color = "red") + 
+  
+geom_abline(slope = 0.056132, intercept = 84.018910, color = "blue") 
+  
+    
+```
+
+
+## 15.
+For the population in the first quartile of income, we see that the predicted life expectancy for a person of 0 income is 77.23 years on average. For each $1000 increase in median income, we predict that the life expectancy will go up by 0.04 years.
+
+For the fourth quartile, we see that the predicted life expectancy is 84.01 years old. For each $1000 increase in household income, we predict a 0.05 years increase in life expectancy.
+
+The regression results show that there is a positive association between life expectancy and median household income for both quartile in income earners. 
+While the intercept represents the life expectancy earning 0 dollars does not make sense, we can infer from it that being within the fourth quartile in income owner shows there is very little difference life expectancy compared to the first quartile where itt deviates by 0.01 years per additional $1000.
+
+The model does not explain everything where there is a offset in life expectancy in those who earn the same amount but also happens to be in the fourth quartile, however it does suggests that a positive relationship exists between income and life expectancy (visually).
+
+
+## 16. 
+```{r}
+income$is_q4 = as.integer(income$income_quartile == 4)
+#lm(life_exp ~ median_hh_inc + , data = (income_q1))
+interaction_prediction = lm(life_exp ~ median_hh_inc + is_q4 + median_hh_inc :is_q4, data = income)
+
+summary(interaction_prediction)
+```
+## 17. 
+- The intercept of the average life expectancy of a person making $0 is 77.23 years. 
+- The average median household income per $1000 increase is 0.04 additional years on the life span. 
+- If a person is within the fourth quartile in terms of median household income, then their life expectancy is predicted to increase by 6.78 years. 
+- The median_hh_inc:is_q4 says that there is basically no significant interactions between the median household income and being in the fourth quartile. 
+
+## 18. 
+The regression result in model [14] and [16] are generally the same in terms of slope and intercept. Model [14] regresses the two income quartile seperately, we see a intercept of 77.23 for Q1 and a intercept of 84.01 for Q4. 
+
+In model [16], we regressed Q1 and Q4 as a single regression where we saw that slope is 77.23, however the conditional of being in Q4 will increase the life expectancy by 6.78. 
+
+We can see that 84.01 - 77.23 = 6.78, which tells us that that is exactly what was predicted in model [14]. In addition, model[16] says that the interaction estimate between median household income and being in the income quartile 4 is 0.009228, meaning there is not enough evidence to say that there is a interaction between these two variables. 
+
+
+## 19. 
+The results in [16] does suggest an association between life expectancy and median household income. In the model, we regressed on the condition that being in the higher income quartile will increase life expectancy from the start. 
+The binary condition of yes in Q4 or no in Q1 will determine how much the slope intercept will increase by if in Q4. This shows that on average, people who make the Q4 income quartiles will see a increase in life expectancy compared to those in the lower income quartiles. 
+
+
+## 20. 
+In this study we looked at the relationship between life expectancy of upper and lower quartile income earners. Our model predicts that there is a postive relationship between income levels and life expectancy. There is a baseline minimum for Q1 earners to have a life expectancy of 77.23 years old. In event of being a Q4 income earner, the baseline life expectancy increases by 6.78 years to 84.01 years old. We say that on average, a person within the income level of quartile 1 will have a increase in life expectancy of 0.046 years per $1000 increase in income while those in the income level of Q4 will have an increase in life expectancy by 0.56 years. The offset in life expectancy based on income and every $1000 increase in income can be seen in the model below. While this regression does not collectively explain all the data, there is some other factors that contribute to the estimated life expectancy. 
+```{r}
+ggplot(data= income) + geom_point(aes(x = median_hh_inc, 
+                                      y = life_exp, 
+                                      color = factor(
+                                      income_quartile,
+                                      labels = c("First Quartile", "Fourth Quartile")))) + 
+  labs(title = "Life Expectancy Disturbution",
+    x = "Median Household Income",
+    y = "Life Expectancy",
+    color = "Income Quartile")+
+    geom_abline(slope = 0.046904, intercept = 77.232936, color = "red") + 
+    geom_abline(slope = 0.056132, intercept = 84.018910, color = "blue") 
+  
+```
+
